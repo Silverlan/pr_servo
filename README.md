@@ -1,12 +1,18 @@
-# Pragma Module Template
+[![Build Windows](https://github.com/Silverlan/pr_servo/actions/workflows/build-windows-ci.yml/badge.svg)](https://github.com/Silverlan/pr_servo/actions/workflows/build-windows-ci.yml) [![Build Linux](https://github.com/Silverlan/pr_servo/actions/workflows/build-linux-ci.yml/badge.svg)](https://github.com/Silverlan/pr_servo/actions/workflows/build-linux-ci.yml)
 
-This is a template repository for modules for the Pragma Game Engine. If you want to create your own custom binary module, you can click on the [**Use this template**](https://github.com/Silverlan/pr_module_template/generate) button above to do so. For more detailed instructions, check out the [wiki](https://wiki.pragma-engine.com/books/pragma-engine/page/binary-modules#bkmrk-custom-modules).
+# Servo Embedded
+This is a binary module for the [Pragma Game Engine](https://github.com/Silverlan/pragma). For more information on binary modules, check out [this wiki article](https://wiki.pragma-engine.com/books/pragma-engine/page/binary-modules).
 
-Once the repository has been generated, edit the values in `template_pragma_module.json`:
-* name: The name of the module as it will appear in the readme
-* module_name: The internal name of the module (i.e. the name of the CMake target and the binaries). This name should always start with the prefix `pr_` and always be lowercase.
-* module_type: The type of the module, which can be "shared", "client" or "server".
-* install_directory: The directory where the module should be installed to, relative to the Pragma installation. This should be somewhere in `modules/` or `addons/<addonName>/modules/`.
-* release_directory (optional): The directory that should be used for GitHub releases. If left empty, only the binary module itself will be added to the release. If your binary resides within an addon, specify the addon path here (`addons/<addonName>/`).
+## Installation
+To install this module, download one of the prebuilt binaries on the right and extract the archive over your Pragma installation.
 
-Once you have pushed the changes to this file, a GitHub workflow will be triggered, which will generate the final files (this may take a few minutes). This will also replace this readme with additional information and instructions.
+The module can then be loaded in Pragma by running the following console command:
+```
+lua_run_cl print(engine.load_library("modules/servo/pr_servo"))
+```
+
+(You can use `lua_run` instead of `lua_run_cl` to load the module serverside instead of clientside.)
+
+## Developing
+
+Please see the [wiki](https://wiki.pragma-engine.com/books/pragma-engine/page/binary-modules#bkmrk-building-modules) for instructions on how to develop and build the module.

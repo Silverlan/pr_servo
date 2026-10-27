@@ -1,8 +1,8 @@
 include(${CMAKE_SOURCE_DIR}/cmake/pr_common.cmake)
 
-set(PROJ_NAME {{ tmplr.module_name }})
+set(PROJ_NAME pr_servo)
 
-pr_add_module(${PROJ_NAME} "{{ tmplr.install_directory }}")
+pr_add_module(${PROJ_NAME} "modules/servo/")
 
 pr_add_dependency(${PROJ_NAME} shared TARGET PUBLIC)
 pr_add_dependency(${PROJ_NAME} client TARGET PUBLIC)

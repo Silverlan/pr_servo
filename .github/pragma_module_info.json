@@ -1,7 +1,6 @@
 {
     "name": "Servo Embedded",
     "module_name": "pr_servo",
-    "module_type": "client",
     "install_directory": "modules/servo/",
     "release_directory": "modules/servo/"
 }
