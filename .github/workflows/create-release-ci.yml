@@ -1,0 +1,18 @@
+name: Create Stable Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version'
+        required: true
+        type: string
+
+jobs:
+  call-workflow:
+    uses: Silverlan/pragma/.github/workflows/release-module.yml@main
+    if: github.repository != 'Silverlan/pr_module_template'
+    with:
+      version: '${{ inputs.version }}'
+    permissions:
+      contents: write

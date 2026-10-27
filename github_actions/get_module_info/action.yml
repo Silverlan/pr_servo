@@ -1,0 +1,81 @@
+name: Get Module Info
+description: 'Get Pragma Module Info'
+inputs:
+  filepath:
+    description: 'Path to json file'
+    required: true
+    default: ''
+  repo_access_token:
+    description: 'Token required to access the GitHub repository (if it is private).'
+    required: true
+    default: ''
+  repository:
+    description: 'The target repository from which to get the module info.'
+    required: true
+    default: '${{ github.repository }}/${{ github.ref_name }}'
+outputs:
+  name:
+    description: 'Pretty name of the module'
+    value: ${{ steps.json.outputs.name }}
+  module_name:
+    description: 'Name of the module.'
+    value: ${{ steps.json.outputs.module_name }}
+  module_type:
+    description: 'Type of the module.'
+    value: ${{ steps.json.outputs.module_type }}
+  install_directory:
+    description: 'Where the module should be installed to.'
+    value: ${{ steps.json.outputs.install_directory }}
+  release_directory:
+    description: 'The directory that should be added to the GitHub release.'
+    value: ${{ steps.json.outputs.release_directory }}
+runs:
+  using: "composite"
+  steps:
+    - name: Load json values
+      id: json
+      shell: bash
+      run: |
+        filepath=${{ inputs.filepath }}
+        remFile=0
+        if [ -z "$filepath" ]; then
+          token="${{ inputs.repo_access_token }}"
+          authHeader=""
+          if [ -n "$token" ]; then
+            curl -H "Authorization: token ${token}" -H "Accept: application/vnd.github.v3.raw" -o pragma_module_info.json https://api.github.com/repos/${{ inputs.repository }}/contents/.github/pragma_module_info.json
+          else
+            curl -H "Accept: application/vnd.github.v3.raw" -o pragma_module_info.json https://api.github.com/repos/${{ inputs.repository }}/contents/.github/pragma_module_info.json
+          fi
+          
+          filepath="pragma_module_info.json"
+
+          remFile=1
+        fi
+        echo "Module Info:"
+        cat $filepath
+        function getVal {
+          val=$(cat $filepath | jq $1)
+          temp="${val%\"}"
+          temp="${temp#\"}"
+          val=$temp
+          echo $val
+        }
+        name=$( getVal '.name' )
+        module_name=$( getVal '.module_name' )
+        module_type=$( getVal '.module_type' )
+        install_directory=$( getVal '.install_directory' )
+        release_directory=$( getVal '.release_directory' )
+        if [ -z "$release_directory" ]; then
+            # If release_directory is empty, assign the default value "DEFAULT"
+            release_directory="DEFAULT"
+        fi
+
+        echo "name=$name" >> $GITHUB_OUTPUT
+        echo "module_name=$module_name" >> $GITHUB_OUTPUT
+        echo "module_type=$module_type" >> $GITHUB_OUTPUT
+        echo "install_directory=$install_directory" >> $GITHUB_OUTPUT
+        echo "release_directory=$release_directory" >> $GITHUB_OUTPUT
+
+        if [ "$remFile" -eq "1" ]; then
+          rm -f "$filepath"
+        fi

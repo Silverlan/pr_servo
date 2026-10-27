@@ -1,0 +1,7 @@
+{
+    "name": "Project Name",
+    "module_name": "pr_module",
+    "module_type": "shared",
+    "install_directory": "modules/",
+    "release_directory": ""
+}
