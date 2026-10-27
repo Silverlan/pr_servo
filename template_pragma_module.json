@@ -1,7 +1,7 @@
 {
-    "name": "Project Name",
-    "module_name": "pr_module",
-    "module_type": "shared",
-    "install_directory": "modules/",
-    "release_directory": ""
+    "name": "Servo Embedded",
+    "module_name": "pr_servo",
+    "module_type": "client",
+    "install_directory": "modules/servo/",
+    "release_directory": "modules/servo/"
 }
