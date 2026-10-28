@@ -84,15 +84,48 @@ namespace servo {
 		servolib::Servo *m_instance = nullptr;
 	};
 
+	typedef enum {
+		TEST_STEP_STARTING = 0,
+		TEST_STEP_HEAD_PARSED,
+		TEST_STEP_LOAD_COMPLETE,
+		TEST_STEP_FRAME_READY,
+		TEST_STEP_SCREENSHOT_DONE,
+		TEST_STEP_SCREENSHOT_FAILED,
+	} test_step_t;
+class Browser;
+	typedef struct {
+		Browser *browser = nullptr;
+		// `step` is not atomic since it is modified by the delegate
+		// callbacks that are run on the main thread during spin.
+		test_step_t step = TEST_STEP_STARTING;
+		// The dimensions of the software rendering context.
+		uint32_t expected_width = 0;
+		uint32_t expected_height = 0;
+	} test_state_t;
+
 	class Browser {
 	public:
 		static std::expected<std::unique_ptr<Browser>, std::string> Create(uint32_t width, uint32_t height);
 		~Browser();
-		void DebugDumpScreenshot();
-		void LoadUrl();
+		void LoadUrl(std::string_view url);
+		test_state_t &GetState() { return m_state; }
+		std::vector<std::array<uint8_t, 4>> &GetStagingData() { return m_stagingData; }
+		std::shared_ptr<prosper::Texture> GetTexture() { return m_texture; }
+		void *GetImageDataPointer() { return m_imgDataPtr; }
 	private:
-		Browser(servolib::WebView *webView);
+		Browser();
+		void ClearTexture();
+		void SetWebView(servolib::WebView *webView);
+		bool Resize(uint32_t width, uint32_t height);
+		void UpdateImage(prosper::ICommandBuffer &drawCmd);
+		uint32_t m_width = 0;
+		uint32_t m_height = 0;
+		test_state_t m_state;
 		servolib::WebView *m_webView = nullptr;
+		std::shared_ptr<prosper::Texture> m_texture = nullptr;
+		std::shared_ptr<prosper::IBuffer> m_stagingBuffer = nullptr;
+		void *m_imgDataPtr = nullptr;
+		std::vector<std::array<uint8_t, 4>> m_stagingData;
 	};
 }
 
@@ -131,54 +164,32 @@ servo::Instance *servo::Instance::Get() { return g_servoInstance.get(); }
 servo::Instance::Instance(servolib::Servo *instance) : m_instance {instance} {}
 servo::Instance::~Instance() { servolib::servo_free(m_instance); }
 
-typedef enum {
-	TEST_STEP_STARTING = 0,
-	TEST_STEP_HEAD_PARSED,
-	TEST_STEP_LOAD_COMPLETE,
-	TEST_STEP_FRAME_READY,
-	TEST_STEP_SCREENSHOT_DONE,
-	TEST_STEP_SCREENSHOT_FAILED,
-} test_step_t;
-typedef struct {
-	// `step` is not atomic since it is modified by the delegate
-	// callbacks that are run on the main thread during spin.
-	test_step_t step;
-	// The dimensions of the software rendering context.
-	uint32_t expected_width;
-	uint32_t expected_height;
-} test_state_t;
-
 static void on_screenshot(const uint8_t* data, uint32_t width, uint32_t height,
 	int32_t error, const void* user_data)
 {
-    test_state_t* state = (test_state_t*)user_data;
+   auto* state = (servo::test_state_t*)user_data;
     if (data == nullptr) {
-        state->step = TEST_STEP_SCREENSHOT_FAILED;
+        state->step = servo::TEST_STEP_SCREENSHOT_FAILED;
         std::cout<<std::format("  [screenshot] failed with error=%d\n", error)<<std::endl;
         return;
     }
     if (width != state->expected_width || height != state->expected_height) {
-        state->step = TEST_STEP_SCREENSHOT_FAILED;
+        state->step = servo::TEST_STEP_SCREENSHOT_FAILED;
         std::cout<<std::format("  [screenshot] incorrect dimensions: expected %ux%u, got %ux%u\n",
             state->expected_width, state->expected_height, width, height)<<std::endl;
         return;
     }
     uint32_t pixel_count = width * height;
-    for (uint32_t i = 0; i < pixel_count; i++) {
-        uint32_t offset = i * 4;
-        if (data[offset] != 255 || data[offset + 1] != 0 || data[offset + 2] != 0 || data[offset + 3] != 255) {
-            state->step = TEST_STEP_SCREENSHOT_FAILED;
-            std::cout<<std::format("  [screenshot] non-red pixel at (%u, %u) (R=%d, G=%d, B=%d, A=%d)\n",
-                i % width, i / width, data[offset], data[offset + 1],
-                data[offset + 2], data[offset + 3])<<std::endl;
-            return;
-        }
-    }
-    state->step = TEST_STEP_SCREENSHOT_DONE;
+	//memcpy(state->browser->GetStagingData().data(), data, pixel_count *4);
+	memcpy(state->browser->GetImageDataPointer(), data, pixel_count *4);
+
+    state->step = servo::TEST_STEP_SCREENSHOT_DONE;
     std::cout<<std::format("  [screenshot] all %u pixels red (255,0,0,255)  size=%ux%u\n",
         pixel_count, width, height)<<std::endl;
 }
 
+static std::vector<servo::Browser *> g_webElements {};
+static CallbackHandle g_preRecordGuiCb {};
 std::expected<std::unique_ptr<servo::Browser>, std::string> servo::Browser::Create(uint32_t width, uint32_t height)
 {
 	if (auto res = Instance::Initialize(); !res)
@@ -193,8 +204,11 @@ std::expected<std::unique_ptr<servo::Browser>, std::string> servo::Browser::Crea
 		return std::unexpected {"Failed to create servo webview."};
 	}
 
-	test_state_t state;
-	memset(&state, 0, sizeof(state));
+	auto browser = std::unique_ptr<Browser> {new Browser{}};
+	browser->Resize(width, height);
+
+	auto &state = browser->GetState();
+	state.browser = browser.get();
 	servolib::ServoWebViewDelegate delegate {
 		&state,
 		+[](servolib::WebView *webView, int32_t status, const void *userData) {
@@ -202,7 +216,7 @@ std::expected<std::unique_ptr<servo::Browser>, std::string> servo::Browser::Crea
 		},
 		+[](servolib::WebView *webView, const void *userData) {
 			std::cout<<"New frame ready"<<std::endl;
-			test_state_t* state = (test_state_t*)userData;
+			auto* state = (servo::test_state_t*)userData;
 			state->step = TEST_STEP_FRAME_READY;
 			servolib::servo_webview_paint(webView);
 			servolib::servo_webview_take_screenshot(webView, on_screenshot, userData);
@@ -265,31 +279,130 @@ std::expected<std::unique_ptr<servo::Browser>, std::string> servo::Browser::Crea
 	//result = 0;
 	std::cout<<std::format("  PASS: all pixels verified\n")<<std::endl;
 
+	browser->SetWebView(webView);
 
 
+	if(g_webElements.empty()) {
+		g_preRecordGuiCb = pragma::get_cengine()->AddCallback("PreRecordGUI", FunctionCallback<void>::Create([]() {
+			auto &window = pragma::get_cengine()->GetWindow();
+			auto &drawCmd = window.GetDrawCommandBuffer();
+			servo::Instance::Get()->SpinEventLoop();
+			for(auto *el : g_webElements)
+				el->UpdateImage(*drawCmd);
+		}));
+	}
+	g_webElements.push_back(browser.get());
 
-	auto browser = std::unique_ptr<Browser> {new Browser{webView}};
 	return std::move(browser);
 }
 
-servo::Browser::Browser(servolib::WebView *webView) : m_webView {webView} {}
+servo::Browser::Browser() {}
 servo::Browser::~Browser()
 {
-	servolib::servo_webview_free(m_webView);
+	ClearTexture();
+	if(m_webView)
+		servolib::servo_webview_free(m_webView);
+
+	auto it = std::find(g_webElements.begin(), g_webElements.end(), this);
+	if(it != g_webElements.end())
+		g_webElements.erase(it);
+	if(g_webElements.empty() && g_preRecordGuiCb.IsValid())
+		g_preRecordGuiCb.Remove();
 }
 
-void servo::Browser::DebugDumpScreenshot()
+void servo::Browser::ClearTexture()
 {
-	servolib::servo_webview_paint(m_webView);
-	servolib::servo_webview_take_screenshot(m_webView, +[](const uint8_t *data, uint32_t width, uint32_t height, int32_t error, const void *userData) {
-		std::cout<<"Got data..."<<std::endl;
-	}, nullptr);
+	if(m_imgDataPtr) {
+		m_stagingBuffer->Unmap();
+		m_imgDataPtr = nullptr;
+	}
+	m_texture = nullptr;
 }
 
-void servo::Browser::LoadUrl()
+void servo::Browser::SetWebView(servolib::WebView *webView) { m_webView = webView; }
+
+void servo::Browser::UpdateImage(prosper::ICommandBuffer &drawCmd)
 {
-    const char* url = "data:text/html,<html><body style='background:red'></body></html>";
-    if (servolib::servo_webview_load(m_webView, url) != 0) {
+	auto &img = m_texture->GetImage();
+	drawCmd.RecordImageBarrier(img, prosper::ImageLayout::ShaderReadOnlyOptimal, prosper::ImageLayout::TransferDstOptimal);
+
+	std::array<std::tuple<int, int, int, int>, 1> dirtyRects {
+		std::tuple<int, int, int, int> {0, 0, m_width, m_height}
+	};
+
+	prosper::util::BufferImageCopyInfo copyInfo {};
+	auto pixelSize = img.GetPixelSize();
+	for(auto &rect : dirtyRects) {
+		copyInfo.imageOffset = {std::get<0>(rect), std::get<1>(rect)};
+		copyInfo.imageExtent = Vector2i {std::get<2>(rect), std::get<3>(rect)};
+		copyInfo.bufferOffset = (copyInfo.imageOffset.y * img.GetWidth() + copyInfo.imageOffset.x) * pixelSize;
+		copyInfo.bufferExtent = Vector2i {img.GetWidth(), img.GetHeight()};
+
+		drawCmd.RecordCopyBufferToImage(copyInfo, *m_stagingBuffer, img);
+	}
+
+	drawCmd.RecordImageBarrier(img, prosper::ImageLayout::TransferDstOptimal, prosper::ImageLayout::ShaderReadOnlyOptimal);
+}
+
+bool servo::Browser::Resize(uint32_t width, uint32_t height)
+{
+	m_width = width;
+	m_height = height;
+	Vector2i m_browserViewSize {width, height};
+	if(m_texture) {
+		auto &img = m_texture->GetImage();
+		if(img.GetWidth() == m_browserViewSize.x && img.GetHeight() == m_browserViewSize.y)
+			return true;
+	}
+	ClearTexture();
+
+	auto &context = pragma::gui::WGUI::GetInstance().GetContext();
+	if(m_browserViewSize.x == 0 || m_browserViewSize.y == 0)
+		return false;
+	prosper::util::ImageCreateInfo imgCreateInfo {};
+	imgCreateInfo.format = prosper::Format::R8G8B8A8_UNorm;
+	imgCreateInfo.width = m_browserViewSize.x;
+	imgCreateInfo.height = m_browserViewSize.y;
+	imgCreateInfo.memoryFeatures = prosper::MemoryFeatureFlags::GPUBulk;
+	imgCreateInfo.tiling = prosper::ImageTiling::Linear;
+	imgCreateInfo.usage = prosper::ImageUsageFlags::SampledBit;
+	imgCreateInfo.postCreateLayout = prosper::ImageLayout::ShaderReadOnlyOptimal;
+
+	auto img = context.CreateImage(imgCreateInfo);
+	prosper::util::ImageViewCreateInfo imgViewCreateInfo {};
+	imgViewCreateInfo.swizzleRed = prosper::ComponentSwizzle::B;
+	imgViewCreateInfo.swizzleBlue = prosper::ComponentSwizzle::R;
+	prosper::util::SamplerCreateInfo samplerCreateInfo {};
+	auto tex = context.CreateTexture({}, *img, imgViewCreateInfo, samplerCreateInfo);
+	if(tex == nullptr)
+		return false;
+
+	prosper::util::BufferCreateInfo bufCreateInfo {};
+	bufCreateInfo.size = imgCreateInfo.width * imgCreateInfo.height * prosper::util::get_pixel_size(imgCreateInfo.format);
+	bufCreateInfo.flags |= prosper::util::BufferCreateInfo::Flags::Persistent;
+	bufCreateInfo.memoryFeatures = prosper::MemoryFeatureFlags::CPUToGPU | prosper::MemoryFeatureFlags::HostCoherent;
+
+	// Clear to white color
+	auto clearCol = colors::White;
+	m_stagingData.clear();
+	m_stagingData.resize(imgCreateInfo.width * imgCreateInfo.height, std::array<uint8_t, 4> {static_cast<uint8_t>(clearCol.r), static_cast<uint8_t>(clearCol.g), static_cast<uint8_t>(clearCol.b), static_cast<uint8_t>(clearCol.a)});
+
+	auto stagingBuffer = context.CreateBuffer(bufCreateInfo, m_stagingData.data());
+	if(!stagingBuffer)
+		return false;
+
+	m_texture = tex;
+	m_stagingBuffer = stagingBuffer;
+	stagingBuffer->Map(0ull, stagingBuffer->GetSize(), prosper::IBuffer::MapFlags::WriteBit | prosper::IBuffer::MapFlags::PersistentBit, &m_imgDataPtr);
+	//cef::get_wrapper().render_handler_set_image_data(m_webRenderer.get(), m_imgDataPtr, img->GetWidth(), img->GetHeight());
+	//cef::get_wrapper().browser_was_resized(GetBrowser());
+	//cef::get_wrapper().render_handler_clear_dirty_rects(m_webRenderer.get());
+	return true;
+}
+
+void servo::Browser::LoadUrl(std::string_view url)
+{
+    if (servolib::servo_webview_load(m_webView, std::string{url}.c_str()) != 0) {
     	std::cout<<"FAILED"<<std::endl;
         //log("  FAIL: servo_webview_builder_set_url failed for url '%s'\n", url);
         return;
@@ -299,15 +412,16 @@ void servo::Browser::LoadUrl()
 
 extern "C"
 {
-    // Called after the module has been loaded
     PR_EXPORT bool pragma_attach(std::string &outErr)
     {
-        // Return true to indicate that the module has been loaded successfully.
-        // If the module could not be loaded properly, return false and populate 'outErr' with a descriptive error message.
-        Con::COUT<<"Custom module \"pr_servo\" has been loaded!"<<Con::endl;
-
     	std::string err;
-    	auto lib = pragma::util::load_library_module("servo/libservo_capi", {}, {}, &err);
+    	std::string_view libPath;
+#ifdef _WIN32
+    	libPath = "servo/servo_capi";
+#else
+    	libPath = "servo/libservo_capi";
+#endif
+    	auto lib = pragma::util::load_library_module(std::string {libPath}, {}, {}, &err);
     	if (lib) {
     		lib->SetDontFreeLibraryOnDestruct();
 
@@ -317,10 +431,6 @@ extern "C"
     		catch(const std::runtime_error &e) {
     			std::cout<<"Error: "<<e.what()<<std::endl;
     		}
-
-    		auto browser = servo::Browser::Create(512, 512);
-    		if (browser)
-    			std::cout<<"Browser created!"<<std::endl;
 
     		/*ServoWebViewBuilder* webview_builder = servo_webview_builder_create(servo, context);
     		//auto *builder = servo_builder_create();
@@ -369,10 +479,9 @@ extern "C"
         return true;
     }
 
-    // Called when the module is about to be unloaded
     PR_EXPORT void pragma_detach()
     {
-        Con::COUT<<"Custom module \"pr_servo\" is about to be unloaded!"<<Con::endl;
+    	g_servoInstance = nullptr;
     }
 
     // Lua bindings can be initialized here
@@ -393,8 +502,8 @@ extern "C"
 		})];
 
         auto classDef = luabind::class_<servo::Browser>("Browser");
-        classDef.def("DebugDumpScreenshot", &servo::Browser::DebugDumpScreenshot);
         classDef.def("LoadUrl", &servo::Browser::LoadUrl);
+        classDef.def("GetTexture", &servo::Browser::GetTexture);
         libDemo[classDef];
     }
 
