@@ -27,7 +27,10 @@ void servo::capi::load_symbols(pragma::util::Library &lib)
 	load_symbol(lib, "servo_builder_set_event_loop_waker", &servo_builder_set_event_loop_waker);
 	load_symbol(lib, "servo_free", &servo_free);
 	load_symbol(lib, "servo_options_create", &servo_options_create);
+	load_symbol(lib, "servo_options_set_config_dir", &servo_options_set_config_dir);
+	load_symbol(lib, "servo_options_set_hard_fail", &servo_options_set_hard_fail);
 	load_symbol(lib, "servo_options_set_multiprocess", &servo_options_set_multiprocess);
+	load_symbol(lib, "servo_options_set_temporary_storage", &servo_options_set_temporary_storage);
 	load_symbol(lib, "servo_builder_set_options", &servo_builder_set_options);
 	load_symbol(lib, "servo_rendering_context_create_software", &servo_rendering_context_create_software);
 	load_symbol(lib, "servo_rendering_context_free", &servo_rendering_context_free);

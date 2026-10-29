@@ -26,7 +26,10 @@ export namespace servo::capi {
 	void(*servo_builder_set_event_loop_waker)(ServoBuilder*, void(*)()) = nullptr;
 	void(*servo_free)(Servo*) = nullptr;
 	ServoOptions*(*servo_options_create)() = nullptr;
+	void(*servo_options_set_config_dir)(ServoOptions*, const char*) = nullptr;
+	void(*servo_options_set_hard_fail)(ServoOptions*, bool) = nullptr;
 	void(*servo_options_set_multiprocess)(ServoOptions*, bool) = nullptr;
+	void(*servo_options_set_temporary_storage)(ServoOptions*, bool) = nullptr;
 	void(*servo_builder_set_options)(ServoBuilder*, ServoOptions*) = nullptr;
 	RenderingContext*(*servo_rendering_context_create_software)(uint32_t, uint32_t) = nullptr;
 	void(*servo_rendering_context_free)(RenderingContext*) = nullptr;

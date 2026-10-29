@@ -18,7 +18,14 @@ std::expected<void, std::string> servo::capi::Instance::Initialize()
 		return std::unexpected {"Failed to create servo builder."};
 	auto *options = servo_options_create();
 	if (options != nullptr) {
+		auto localPathToCache = pragma::util::Path::CreatePath("cache/servo");
+		pragma::fs::create_path(localPathToCache.GetString());
+		auto pathToCache = pragma::util::Path::CreatePath(pragma::fs::get_program_write_path()) + localPathToCache;
+
+		servo_options_set_config_dir(options, pathToCache.GetString().c_str());
+		servo_options_set_hard_fail(options, false);
 		servo_options_set_multiprocess(options, false);
+		servo_options_set_temporary_storage(options, true);
 		servo_builder_set_options(builder, options);
 	}
 
