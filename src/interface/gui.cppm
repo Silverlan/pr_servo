@@ -34,9 +34,12 @@ export namespace pragma::gui::types {
 	private:
 		void InitializeBrowser();
 		bool Resize();
+		Vector2i GetBrowserMousePos() const;
 		std::unique_ptr<servo::capi::Browser> m_browser;
 		std::string m_initialUrl;
 		std::string m_url;
+		Vector2i m_mousePos = {};
+		servo::capi::KeyModifier m_buttonMods = servo::capi::KeyModifier::None;
 		Vector2i m_browserViewSize = {};
 		bool m_browserInitialized = false;
 	};

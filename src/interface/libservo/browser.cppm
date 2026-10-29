@@ -31,15 +31,21 @@ export namespace servo::capi {
 		static std::expected<std::unique_ptr<Browser>, std::string> Create(uint32_t width, uint32_t height, std::optional<std::string_view> initialUrl = {});
 		~Browser();
 		void LoadUrl(std::string_view url);
+		std::expected<void, std::string> Resize(uint32_t width, uint32_t height);
 		test_state_t &GetState() { return m_state; }
 		std::vector<std::array<uint8_t, 4>> &GetStagingData() { return m_stagingData; }
 		std::shared_ptr<prosper::Texture> GetTexture() { return m_texture; }
+
+		void NotifyMouseMove(float x, float y);
+		void NotifyMouseButton(MouseButtonAction action, MouseButton button, float x, float y);
+		void NotifyWheel(double deltaX, double deltaY, double deltaZ, WheelMode mode, float x, float y);
+		void NotifyKeyboard(KeyState state, const char *key, const char *code, KeyModifier modifiers);
+
 		void *GetImageDataPointer() { return m_imgDataPtr; }
 	private:
 		Browser();
 		void ClearTexture();
 		void SetWebView(capi::WebView *webView);
-		std::expected<void, std::string> Resize(uint32_t width, uint32_t height);
 		void UpdateImage(prosper::ICommandBuffer &drawCmd);
 		uint32_t m_width = 0;
 		uint32_t m_height = 0;

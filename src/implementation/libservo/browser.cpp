@@ -154,21 +154,22 @@ std::expected<void, std::string> servo::capi::Browser::Resize(uint32_t width, ui
 {
 	m_width = width;
 	m_height = height;
-	Vector2i m_browserViewSize {width, height};
 	if(m_texture) {
 		auto &img = m_texture->GetImage();
-		if(img.GetWidth() == m_browserViewSize.x && img.GetHeight() == m_browserViewSize.y)
+		if(img.GetWidth() == m_width && img.GetHeight() == m_height)
 			return {};
 	}
 	ClearTexture();
+	if (m_webView)
+		capi::servo_webview_resize(m_webView, width, height);
 
 	auto &context = pragma::gui::WGUI::GetInstance().GetContext();
-	if(m_browserViewSize.x == 0 || m_browserViewSize.y == 0)
+	if(m_width == 0 || m_height == 0)
 		return std::unexpected(std::format("Invalid resolution {}x{}", width, height));
 	prosper::util::ImageCreateInfo imgCreateInfo {};
 	imgCreateInfo.format = prosper::Format::R8G8B8A8_UNorm;
-	imgCreateInfo.width = m_browserViewSize.x;
-	imgCreateInfo.height = m_browserViewSize.y;
+	imgCreateInfo.width = m_width;
+	imgCreateInfo.height = m_height;
 	imgCreateInfo.memoryFeatures = prosper::MemoryFeatureFlags::GPUBulk;
 	imgCreateInfo.tiling = prosper::ImageTiling::Linear;
 	imgCreateInfo.usage = prosper::ImageUsageFlags::SampledBit;
@@ -176,8 +177,6 @@ std::expected<void, std::string> servo::capi::Browser::Resize(uint32_t width, ui
 
 	auto img = context.CreateImage(imgCreateInfo);
 	prosper::util::ImageViewCreateInfo imgViewCreateInfo {};
-	imgViewCreateInfo.swizzleRed = prosper::ComponentSwizzle::B;
-	imgViewCreateInfo.swizzleBlue = prosper::ComponentSwizzle::R;
 	prosper::util::SamplerCreateInfo samplerCreateInfo {};
 	auto tex = context.CreateTexture({}, *img, imgViewCreateInfo, samplerCreateInfo);
 	if(tex == nullptr)
@@ -199,6 +198,8 @@ std::expected<void, std::string> servo::capi::Browser::Resize(uint32_t width, ui
 
 	m_texture = tex;
 	m_stagingBuffer = stagingBuffer;
+	m_state.expected_width = m_width;
+	m_state.expected_height = m_height;
 	stagingBuffer->Map(0ull, stagingBuffer->GetSize(), prosper::IBuffer::MapFlags::WriteBit | prosper::IBuffer::MapFlags::PersistentBit, &m_imgDataPtr);
 	return {};
 }
@@ -208,4 +209,21 @@ void servo::capi::Browser::LoadUrl(std::string_view url)
     if (capi::servo_webview_load(m_webView, std::string{url}.c_str()) == 0)
 		return;
 	get_logger().warn("Failed to load url '{}'.", url);
+}
+
+void servo::capi::Browser::NotifyMouseMove(float x, float y)
+{
+	servo_webview_notify_mouse_move(m_webView, x, y);
+}
+void servo::capi::Browser::NotifyMouseButton(MouseButtonAction action, MouseButton button, float x, float y)
+{
+	servo_webview_notify_mouse_button(m_webView, action, button, x, y);
+}
+void servo::capi::Browser::NotifyWheel(double deltaX, double deltaY, double deltaZ, WheelMode mode, float x, float y)
+{
+	servo_webview_notify_wheel(m_webView, deltaX, deltaY, deltaZ, mode, x, y);
+}
+void servo::capi::Browser::NotifyKeyboard(KeyState state, const char *key, const char *code, KeyModifier modifiers)
+{
+	servo_webview_notify_keyboard(m_webView, state, key, code, modifiers);
 }

@@ -45,6 +45,13 @@ void servo::capi::load_symbols(pragma::util::Library &lib)
 	load_symbol(lib, "servo_webview_load", &servo_webview_load);
 	load_symbol(lib, "servo_webview_paint", &servo_webview_paint);
 	load_symbol(lib, "servo_webview_take_screenshot", &servo_webview_take_screenshot);
+#ifndef SERVO_USE_STUB_PLACEHOLDERS
+	load_symbol(lib, "servo_webview_resize", &servo_webview_resize);
+	load_symbol(lib, "servo_webview_notify_mouse_move", &servo_webview_notify_mouse_move);
+	load_symbol(lib, "servo_webview_notify_mouse_button", &servo_webview_notify_mouse_button);
+	load_symbol(lib, "servo_webview_notify_wheel", &servo_webview_notify_wheel);
+	load_symbol(lib, "servo_webview_notify_keyboard", &servo_webview_notify_keyboard);
+#endif
 }
 
 static std::shared_ptr<pragma::util::Library> g_capiLib;

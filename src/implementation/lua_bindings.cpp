@@ -11,10 +11,10 @@ void servo::register_lua_bindings(Lua::Interface &lua)
 {
 	auto &libServo = lua.RegisterLibrary("servo");
 	libServo[luabind::def("spin_event_loop",+[]() {
-		servo::capi::Instance::Get()->SpinEventLoop();
+		capi::Instance::Get()->SpinEventLoop();
 	})];
-	libServo[luabind::def("create_browser",+[](uint32_t width, uint32_t height) -> std::shared_ptr<servo::capi::Browser> {
-		auto browser = servo::capi::Browser::Create(width, height);
+	libServo[luabind::def("create_browser",+[](uint32_t width, uint32_t height) -> std::shared_ptr<capi::Browser> {
+		auto browser = capi::Browser::Create(width, height);
 		if(!browser)
 			return nullptr;
 		return std::shared_ptr{std::move(*browser)};
