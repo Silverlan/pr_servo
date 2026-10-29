@@ -5,6 +5,8 @@ export module pragma.modules.servo:gui;
 
 export import pragma.gui;
 
+import :libservo.browser;
+
 export namespace pragma::gui::types {
 	class ServoBrowser : public WITexturedRect {
 	public:
@@ -12,6 +14,12 @@ export namespace pragma::gui::types {
 		~ServoBrowser() override;
 		void Initialize() override;
 		void Think(const std::shared_ptr<prosper::IPrimaryCommandBuffer> &drawCmd) override;
+
+		void LoadUrl(std::string_view url);
+		const std::string &GetUrl() const;
+		void SetInitialUrl(std::string_view url);
+		void SetBrowserViewSize(Vector2i size);
+		const Vector2i &GetBrowserViewSize() const;
 
 		void OnCursorEntered() override;
 		void OnCursorExited() override;
@@ -24,5 +32,12 @@ export namespace pragma::gui::types {
 		void OnFocusKilled() override;
 		void DoUpdate() override;
 	private:
+		void InitializeBrowser();
+		bool Resize();
+		std::unique_ptr<servo::capi::Browser> m_browser;
+		std::string m_initialUrl;
+		std::string m_url;
+		Vector2i m_browserViewSize = {};
+		bool m_browserInitialized = false;
 	};
 }

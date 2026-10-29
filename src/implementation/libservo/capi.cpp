@@ -46,10 +46,13 @@ void servo::capi::load_symbols(pragma::util::Library &lib)
 
 static std::shared_ptr<pragma::util::Library> g_capiLib;
 static std::optional<bool> g_initializationResult {};
-bool servo::capi::initialize()
+std::expected<void, std::string> servo::capi::initialize()
 {
-	if(g_initializationResult)
-		return *g_initializationResult;
+	if(g_initializationResult) {
+		if(*g_initializationResult)
+			return {};
+		return std::unexpected {"Servo was unable to initialize due to a previous error."};
+	}
 	g_initializationResult = false;
 	auto &logger = get_logger();
 	std::string err;
@@ -60,28 +63,23 @@ bool servo::capi::initialize()
 	libPath = "servo/libservo_capi";
 #endif
 	auto lib = pragma::util::load_library_module(std::string {libPath}, {}, {}, &err);
-	if(!lib) {
-		logger.error("Failed to load servo library '{}': {}", libPath, err);
-		return false;
-	}
+	if(!lib)
+		return std::unexpected(std::format("Failed to load servo library '{}': {}", libPath, err));
 
 	try {
 		load_symbols(*lib);
 	}
 	catch (const std::runtime_error &e) {
-		logger.error("Failed to lookup servo capi symbols: {}", e.what());
-		return false;
+		return std::unexpected(std::format("Failed to lookup servo capi symbols: {}", e.what()));
 	}
 
 	g_capiLib = lib;
 
-	if (auto res = Instance::Initialize(); !res) {
-		logger.error("Failed to initialize servo instance: {}", res.error());
-		return false;
-	}
+	if (auto res = Instance::Initialize(); !res)
+		return std::unexpected(std::format("Failed to initialize servo instance: {}", res.error()));
 
 	g_initializationResult = true;
-	return true;
+	return {};
 }
 bool servo::capi::is_valid() { return g_initializationResult && *g_initializationResult; }
 void servo::capi::close()

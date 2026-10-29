@@ -15,9 +15,9 @@ export namespace servo::capi {
 	struct WebView;
 
 	struct ServoWebViewDelegate {
-		const void *userData;
-		void(*on_load_status_changed)(WebView *, int32_t, const void*);
-		void(*on_new_frame_ready)(WebView *, const void*);
+		void *userData;
+		void(*on_load_status_changed)(WebView *, int32_t, void*);
+		void(*on_new_frame_ready)(WebView *, void*);
 	};
 
 	Servo*(*servo_builder_build)(ServoBuilder*) = nullptr;
@@ -40,9 +40,9 @@ export namespace servo::capi {
 	void(*servo_webview_free)(WebView*) = nullptr;
 	int32_t(*servo_webview_load)(WebView*, const char*) = nullptr;
 	void(*servo_webview_paint)(WebView*) = nullptr;
-	void(*servo_webview_take_screenshot)(WebView*, void(*)(const uint8_t*, uint32_t, uint32_t, int32_t, const void*), const void*) = nullptr;
+	void(*servo_webview_take_screenshot)(WebView*, void(*)(const uint8_t*, uint32_t, uint32_t, int32_t, void*), void*) = nullptr;
 
-	bool initialize();
+	std::expected<void, std::string> initialize();
 	bool is_valid();
 	void close();
 }
