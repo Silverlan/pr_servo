@@ -12,14 +12,15 @@ parser.add_argument("--build-servo", type=str2bool, nargs='?', const=True, defau
 args,unknown = parser.parse_known_args()
 args = vars(args)
 
-# Building via script is currently not yet supported
-# TODO: Implement based on workflow script:
-# https://github.com/Silverlan/libservo_capi/blob/main/.github/workflows/build-libservo.yml
-build_servo = False # build_all or args["build_servo"]
+build_servo = build_all or args["build_servo"]
 if build_servo:
+	# Required so we can import relative packages
+	sys.path.insert(0, os.path.dirname(__file__))
+
 	os.chdir(deps_dir)
 
-	# TODO
+	from third_party import servo
+	servo_info = servo.main()
 else:
 	print_msg("Downloading prebuilt servo binaries...")
 	run_cmake_script(str(Path(moduleDir) / "cmake/fetch_prebuilt_binaries.cmake"))
