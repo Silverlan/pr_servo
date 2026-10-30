@@ -9,8 +9,13 @@ import pragma.client;
 
 pragma::gui::types::ServoBrowser::ServoBrowser() : WITexturedRect{} {}
 pragma::gui::types::ServoBrowser::~ServoBrowser() {}
-void pragma::gui::types::ServoBrowser::Initialize() {
+void pragma::gui::types::ServoBrowser::Initialize()
+{
 	WITexturedRect::Initialize();
+	SetKeyboardInputEnabled(true);
+	SetMouseInputEnabled(true);
+	SetMouseMovementCheckEnabled(true);
+	SetScrollInputEnabled(true);
 }
 void pragma::gui::types::ServoBrowser::Think(const std::shared_ptr<prosper::IPrimaryCommandBuffer> &drawCmd)
 {
@@ -106,18 +111,12 @@ pragma::util::EventReply pragma::gui::types::ServoBrowser::KeyboardCallback(plat
 	if(!m_browser)
 		return util::EventReply::Unhandled;
 	auto systemKey = platform::to_system_key(key);
-	std::optional<char> c {};
 	if(systemKey == -1) {
 		if((mods & (platform::Modifier::Alt | platform::Modifier::Control | platform::Modifier::Super)) == platform::Modifier::None) {
 			// Already handled by CharCallback
 			return util::EventReply::Handled;
 		}
-		// If alt, control or super keys are pressed, CharCallback won't get invoked, so we'll
-		// have to inform servo of the key event here instead.
-		c = std::tolower(math::to_integral(key));
 	}
-	else
-		return util::EventReply::Unhandled;
 	auto servoState = (state == platform::KeyState::Press || state == platform::KeyState::Repeat) ? servo::capi::KeyState::Down : servo::capi::KeyState::Up;
 	auto servoMods = get_servo_modifiers(mods) | m_buttonMods;
 	auto keyboardEventCode = std::string {pragma::platform::glfw_to_w3c_keyboard_event_code(key)};
@@ -152,7 +151,7 @@ pragma::util::EventReply pragma::gui::types::ServoBrowser::ScrollCallback(Vector
 		return util::EventReply::Unhandled;
 	auto brMousePos = GetBrowserMousePos();
 	if(!offsetAsPixels)
-		offset *= 5.f;
+		offset *= 50.f;
 	else
 		offset /= 10.f;
 	m_browser->NotifyWheel(offset.x, offset.y, 0.0, servo::capi::WheelMode::Pixel, brMousePos.x, brMousePos.y);
