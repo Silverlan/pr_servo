@@ -1,6 +1,6 @@
 include("${CMAKE_SOURCE_DIR}/cmake/install_helper.cmake")
 
-set(version "2026-10-28")
+set(version "2026-10-30")
 set(base_url "https://github.com/Silverlan/libservo_capi/releases/download")
 set(libservo_capi_toolset)
 

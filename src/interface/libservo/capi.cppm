@@ -47,6 +47,7 @@ export namespace servo::capi {
 	void(*servo_webview_free)(WebView*) = nullptr;
 	int32_t(*servo_webview_load)(WebView*, const char*) = nullptr;
 	void(*servo_webview_paint)(WebView*) = nullptr;
+	void(*servo_webview_resize)(WebView*, uint32_t, uint32_t) = nullptr;
 	void(*servo_webview_take_screenshot)(WebView*, void(*)(const uint8_t*, uint32_t, uint32_t, int32_t, void*), void*) = nullptr;
 
 	enum class MouseButtonAction : int32_t {
@@ -90,13 +91,11 @@ export namespace servo::capi {
 	};
 
 #ifdef SERVO_USE_STUB_PLACEHOLDERS
-	void servo_webview_resize(WebView*, uint32_t, uint32_t) {}
 	void servo_webview_notify_mouse_move(WebView*, float, float) {}
 	void servo_webview_notify_mouse_button(WebView*, MouseButtonAction, MouseButton, float, float) {}
 	void servo_webview_notify_wheel(WebView*, double, double, double, WheelMode, float, float) {}
 	void servo_webview_notify_keyboard(WebView*, KeyState, const char*, const char*, KeyModifier) {}
 #else
-	void(*servo_webview_resize)(WebView*, uint32_t, uint32_t) = nullptr;
 	void(*servo_webview_notify_mouse_move)(WebView*, float, float) = nullptr;
 	void(*servo_webview_notify_mouse_button)(WebView*, MouseButtonAction, MouseButton, float, float) = nullptr;
 	void(*servo_webview_notify_wheel)(WebView*, double, double, double, WheelMode, float, float) = nullptr;

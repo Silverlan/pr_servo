@@ -14,8 +14,6 @@ pr_add_compile_definitions(${PROJ_NAME} -DSERVO_USE_STUB_PLACEHOLDERS)
 # Once the pull requests have been merged and libservo has been rebuilt, the stubs can be removed.
 # See
 # https://github.com/servo/servo/pull/49334
-# and
-# https://github.com/servo/servo/pull/49326
 
 pr_init_module(${PROJ_NAME})
 
